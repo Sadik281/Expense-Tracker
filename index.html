@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="bn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>খরচের খাতা</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="topbar">
+      <div class="topbar-brand">
+        <div class="brand-icon">
+          <i class="ui-icon" data-lucide="wallet-cards" aria-hidden="true"></i>
+        </div>
+        <div>
+          <div class="brand-name">খরচের খাতা</div>
+          <div class="brand-sub" id="todayLabel"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="bal-pill">
+          ব্যালেন্স <span id="topBalance" style="color: var(--green)">৳০</span>
+        </div>
+        <div class="notif-btn" onclick="toggleNotif()" title="নোটিফিকেশন">
+          <i class="ui-icon" data-lucide="bell" aria-hidden="true"></i>
+          <div class="notif-dot" id="notifDot" style="display: none"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notif-panel" id="notifPanel">
+      <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 10px">
+        <i class="ui-icon" data-lucide="bell" aria-hidden="true"></i> নোটিফিকেশন
+      </div>
+      <div class="notif-item">
+        <div>
+          <i class="ui-icon" data-lucide="clock" aria-hidden="true"></i>
+          প্রতিদিন রাত ৯টায় রিমাইন্ডার চালু
+        </div>
+        <div class="notif-time">আজকের খরচ ইনপুট দিতে ভুলবেন না</div>
+      </div>
+      <button
+        class="btn btn-primary btn-sm"
+        style="width: 100%; margin-top: 12px"
+        onclick="requestNotifPermission()"
+      >
+        <i class="ui-icon" data-lucide="bell-ring" aria-hidden="true"></i>
+        ব্রাউজার নোটিফিকেশন চালু করুন
+      </button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('dashboard', this)">
+        <i
+          class="ui-icon"
+          data-lucide="layout-dashboard"
+          aria-hidden="true"
+        ></i>
+        ড্যাশবোর্ড
+      </button>
+      <button class="tab" onclick="showTab('expense', this)">
+        <i class="ui-icon" data-lucide="receipt" aria-hidden="true"></i> খরচ
+      </button>
+      <button class="tab" onclick="showTab('income', this)">
+        <i class="ui-icon" data-lucide="wallet" aria-hidden="true"></i> আয়
+      </button>
+      <button class="tab" onclick="showTab('history', this)">
+        <i class="ui-icon" data-lucide="history" aria-hidden="true"></i> ইতিহাস
+      </button>
+      <button class="tab" onclick="showTab('report', this)">
+        <i
+          class="ui-icon"
+          data-lucide="file-chart-column-increasing"
+          aria-hidden="true"
+        ></i>
+        রিপোর্ট
+      </button>
+    </div>
+
+    <div class="main">
+      <!-- DASHBOARD -->
+      <div class="section active" id="section-dashboard">
+        <div class="hero">
+          <div class="hero-label">বর্তমান ব্যালেন্স</div>
+          <div class="hero-amount neutral" id="heroBalance">৳০</div>
+          <div class="hero-sub" id="heroSub">এই মাসের হিসাব</div>
+          <div class="hero-grid">
+            <div class="hero-stat">
+              <div class="hero-stat-label">মোট আয়</div>
+              <div class="hero-stat-val inc" id="heroInc">৳০</div>
+            </div>
+            <div class="hero-stat">
+              <div class="hero-stat-label">মোট খরচ</div>
+              <div class="hero-stat-val exp" id="heroExp">৳০</div>
+            </div>
+          </div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-card a">
+            <div class="stat-label">আজকের খরচ</div>
+            <div class="stat-val a" id="todayExp">৳০</div>
+            <div class="stat-sub" id="todayExpCount">০টি</div>
+          </div>
+          <div class="stat-card b">
+            <div class="stat-label">এই সপ্তাহ</div>
+            <div class="stat-val b" id="weekExp">৳০</div>
+            <div class="stat-sub">খরচ</div>
+          </div>
+          <div class="stat-card c">
+            <div class="stat-label">এই মাস</div>
+            <div class="stat-val c" id="monthExp">৳০</div>
+            <div class="stat-sub">খরচ</div>
+          </div>
+          <div class="stat-card d">
+            <div class="stat-label">গড় দৈনিক</div>
+            <div class="stat-val d" id="avgDaily">৳০</div>
+            <div class="stat-sub">এই মাস</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <i class="ui-icon" data-lucide="chart-pie" aria-hidden="true"></i>
+              ক্যাটাগরি অনুযায়ী খরচ
+            </div>
+            <span style="font-size: 0.7rem; color: var(--muted)">এই মাস</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="catChart" style="max-height: 230px"></canvas>
+            <div class="empty" id="catChartEmpty" style="display: none">
+              <div class="ei">
+                <i
+                  class="ui-icon"
+                  data-lucide="chart-pie"
+                  aria-hidden="true"
+                ></i>
+              </div>
+              <p>কোনো ডেটা নেই</p>
+            </div>
+          </div>
+          <div id="catBars" style="margin-top: 14px"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <i class="ui-icon" data-lucide="clock-3" aria-hidden="true"></i>
+              সাম্প্রতিক লেনদেন
+            </div>
+            <button
+              class="btn btn-ghost btn-sm"
+              onclick="showTab('history', document.querySelectorAll('.tab')[3])"
+            >
+              সব দেখুন
+            </button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>তারিখ</th>
+                  <th>বিবরণ</th>
+                  <th>ক্যাটাগরি</th>
+                  <th>পরিমাণ</th>
+                </tr>
+              </thead>
+              <tbody id="recentBody"></tbody>
+            </table>
+            <div class="empty" id="recentEmpty" style="display: none">
+              <div class="ei">
+                <i class="ui-icon" data-lucide="inbox" aria-hidden="true"></i>
+              </div>
+              <p>কোনো লেনদেন নেই</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EXPENSE -->
+      <div class="section" id="section-expense">
+        <div class="quick-add">
+          <div class="section-head">
+            <i class="ui-icon" data-lucide="circle-plus" aria-hidden="true"></i>
+            নতুন খরচ যোগ করুন
+          </div>
+          <div class="cat-grid" id="catPicker">
+            <button class="cat-chip" data-cat="খাবার" onclick="pickCat(this)">
+              <i class="ui-icon" data-lucide="utensils" aria-hidden="true"></i>
+              খাবার
+            </button>
+            <button
+              class="cat-chip"
+              data-cat="যাতায়াত"
+              onclick="pickCat(this)"
+            >
+              <i class="ui-icon" data-lucide="bus" aria-hidden="true"></i>
+              যাতায়াত
+            </button>
+            <button class="cat-chip" data-cat="বিল" onclick="pickCat(this)">
+              <i class="ui-icon" data-lucide="lightbulb" aria-hidden="true"></i>
+              বিল
+            </button>
+            <button class="cat-chip" data-cat="শপিং" onclick="pickCat(this)">
+              <i
+                class="ui-icon"
+                data-lucide="shopping-bag"
+                aria-hidden="true"
+              ></i>
+              শপিং
+            </button>
+            <button class="cat-chip" data-cat="বিনোদন" onclick="pickCat(this)">
+              <i class="ui-icon" data-lucide="gamepad-2" aria-hidden="true"></i>
+              বিনোদন
+            </button>
+            <button
+              class="cat-chip"
+              data-cat="স্বাস্থ্য"
+              onclick="pickCat(this)"
+            >
+              <i
+                class="ui-icon"
+                data-lucide="heart-pulse"
+                aria-hidden="true"
+              ></i>
+              স্বাস্থ্য
+            </button>
+            <button
+              class="cat-chip"
+              data-cat="অন্যান্য"
+              onclick="pickCat(this)"
+            >
+              <i class="ui-icon" data-lucide="package" aria-hidden="true"></i>
+              অন্যান্য
+            </button>
+          </div>
+          <div class="form-row">
+            <div class="fg">
+              <label>বিবরণ</label
+              ><input type="text" id="expDesc" placeholder="কি কিনলেন?" />
+            </div>
+            <div class="fg">
+              <label>পরিমাণ (৳)</label
+              ><input type="number" id="expAmt" placeholder="০" min="0" />
+            </div>
+            <button class="btn btn-primary" onclick="addExpense()">
+              <i class="ui-icon" data-lucide="plus" aria-hidden="true"></i> যোগ
+            </button>
+          </div>
+          <div class="fg" style="margin-top: 8px; max-width: 220px">
+            <label>তারিখ</label><input type="date" id="expDate" />
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <i
+                class="ui-icon"
+                data-lucide="calendar-days"
+                aria-hidden="true"
+              ></i>
+              আজকের খরচ
+            </div>
+            <div
+              style="font-size: 0.85rem; color: var(--red); font-weight: 700"
+              id="todayTotal"
+            >
+              ৳০
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>সময়</th>
+                  <th>বিবরণ</th>
+                  <th>ক্যাটাগরি</th>
+                  <th>পরিমাণ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="todayBody"></tbody>
+            </table>
+            <div class="empty" id="todayEmpty">
+              <div class="ei">
+                <i
+                  class="ui-icon"
+                  data-lucide="receipt-text"
+                  aria-hidden="true"
+                ></i>
+              </div>
+              <p>আজ কোনো খরচ যোগ হয়নি</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INCOME -->
+      <div class="section" id="section-income">
+        <div class="quick-add">
+          <div class="section-head">
+            <i class="ui-icon" data-lucide="wallet" aria-hidden="true"></i> আয়
+            যোগ করুন
+          </div>
+          <div class="form-row">
+            <div class="fg">
+              <label>সোর্স</label
+              ><select id="incSource">
+                <option value="বেতন">বেতন</option>
+                <option value="ফ্রিল্যান্স">ফ্রিল্যান্স</option>
+                <option value="ব্যবসা">ব্যবসা</option>
+                <option value="পকেটমানি">পকেটমানি</option>
+                <option value="অন্যান্য">অন্যান্য</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>পরিমাণ (৳)</label
+              ><input type="number" id="incAmt" placeholder="০" min="0" />
+            </div>
+            <button class="btn btn-primary" onclick="addIncome()">
+              <i class="ui-icon" data-lucide="plus" aria-hidden="true"></i> যোগ
+            </button>
+          </div>
+          <div class="income-meta-row">
+            <div class="fg">
+              <label>বিবরণ (ঐচ্ছিক)</label
+              ><input type="text" id="incDesc" placeholder="নোট..." />
+            </div>
+            <div class="fg">
+              <label>তারিখ</label><input type="date" id="incDate" />
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <i class="ui-icon" data-lucide="chart-pie" aria-hidden="true"></i>
+              সোর্স অনুযায়ী আয়
+            </div>
+            <span style="font-size: 0.7rem; color: var(--muted)">এই মাস</span>
+          </div>
+          <div class="inc-source-grid" id="sourceGrid"></div>
+          <div class="empty" id="sourceEmpty" style="display: none">
+            <div class="ei">
+              <i class="ui-icon" data-lucide="wallet" aria-hidden="true"></i>
+            </div>
+            <p>এই মাসে কোনো আয় নেই</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <i class="ui-icon" data-lucide="history" aria-hidden="true"></i>
+              আয়ের ইতিহাস
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>তারিখ</th>
+                  <th>সোর্স</th>
+                  <th>বিবরণ</th>
+                  <th>পরিমাণ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="incBody"></tbody>
+            </table>
+            <div class="empty" id="incEmpty" style="display: none">
+              <div class="ei">
+                <i class="ui-icon" data-lucide="wallet" aria-hidden="true"></i>
+              </div>
+              <p>কোনো আয় যোগ হয়নি</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HISTORY -->
+      <div class="section" id="section-history">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <i class="ui-icon" data-lucide="list" aria-hidden="true"></i> সকল
+              লেনদেন
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="clearAll()">
+              <i class="ui-icon" data-lucide="trash-2" aria-hidden="true"></i>
+              সব মুছুন
+            </button>
+          </div>
+          <div class="filter-row">
+            <button
+              class="filter-btn active"
+              onclick="filterHistory('all', this)"
+            >
+              সব
+            </button>
+            <button class="filter-btn" onclick="filterHistory('expense', this)">
+              খরচ
+            </button>
+            <button class="filter-btn" onclick="filterHistory('income', this)">
+              আয়
+            </button>
+            <button class="filter-btn" onclick="filterHistory('today', this)">
+              আজ
+            </button>
+            <button class="filter-btn" onclick="filterHistory('week', this)">
+              এই সপ্তাহ
+            </button>
+            <button class="filter-btn" onclick="filterHistory('month', this)">
+              এই মাস
+            </button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>তারিখ</th>
+                  <th>বিবরণ</th>
+                  <th>ধরন</th>
+                  <th>পরিমাণ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="histBody"></tbody>
+            </table>
+            <div class="empty" id="histEmpty" style="display: none">
+              <div class="ei">
+                <i class="ui-icon" data-lucide="inbox" aria-hidden="true"></i>
+              </div>
+              <p>কোনো ডেটা নেই</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORT -->
+      <div class="section" id="section-report">
+        <div class="card" style="text-align: center; padding: 28px">
+          <div class="report-icon">
+            <i
+              class="ui-icon"
+              data-lucide="file-chart-column-increasing"
+              aria-hidden="true"
+            ></i>
+          </div>
+          <div style="font-size: 1rem; font-weight: 600; margin-bottom: 6px">
+            মাসিক রিপোর্ট
+          </div>
+          <div
+            style="font-size: 0.78rem; color: var(--muted); margin-bottom: 20px"
+            id="reportMonthLabel"
+          ></div>
+          <button
+            class="btn btn-primary"
+            id="pdfBtn"
+            style="width: 100%; padding: 12px"
+            onclick="downloadPDF()"
+          >
+            <i class="ui-icon" data-lucide="download" aria-hidden="true"></i>
+            PDF ডাউনলোড করুন
+          </button>
+        </div>
+        <div class="stats-row">
+          <div class="stat-card b">
+            <div class="stat-label">মোট আয়</div>
+            <div class="stat-val b" id="rpInc">৳০</div>
+          </div>
+          <div class="stat-card c">
+            <div class="stat-label">মোট খরচ</div>
+            <div class="stat-val c" id="rpExp">৳০</div>
+          </div>
+          <div class="stat-card a">
+            <div class="stat-label">সঞ্চয়</div>
+            <div class="stat-val a" id="rpSave">৳০</div>
+          </div>
+          <div class="stat-card d">
+            <div class="stat-label">সঞ্চয়ের হার</div>
+            <div class="stat-val d" id="rpRate">০%</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <i class="ui-icon" data-lucide="chart-pie" aria-hidden="true"></i>
+              ক্যাটাগরি ভাঙন
+            </div>
+          </div>
+          <div id="rpCatList"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <i class="ui-icon" data-lucide="wallet" aria-hidden="true"></i>
+              আয়ের উৎস
+            </div>
+          </div>
+          <div id="rpSourceList"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="reminderToast">
+      <div class="toast-head">
+        <i class="ui-icon" data-lucide="clock" aria-hidden="true"></i> রাতের
+        রিমাইন্ডার
+      </div>
+      <div class="toast-body">
+        আজকের খরচ কি ইনপুট দিয়েছেন? একটু সময় নিয়ে আজকের হিসাব ঠিক করুন।
+      </div>
+      <div class="toast-actions">
+        <button class="btn btn-ghost btn-sm" onclick="dismissToast()">
+          পরে
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="goAddExpense()">
+          এখনই দিই
+        </button>
+      </div>
+    </div>
+
+    <div id="pdfTpl"></div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

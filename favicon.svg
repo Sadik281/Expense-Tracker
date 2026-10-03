@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="tile" x1="5" y1="4" x2="59" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4f8ef7" />
+      <stop offset="1" stop-color="#7254e8" />
+    </linearGradient>
+    <linearGradient id="leather" x1="13" y1="19" x2="52" y2="51" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffd978" />
+      <stop offset="1" stop-color="#e99a32" />
+    </linearGradient>
+    <linearGradient id="pocket" x1="33" y1="29" x2="53" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#203a5f" />
+      <stop offset="1" stop-color="#101d34" />
+    </linearGradient>
+    <filter id="shadow" x="7" y="10" width="52" height="49" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#08101f" flood-opacity=".42" />
+    </filter>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="17" fill="url(#tile)" />
+  <path d="M13 24.5v-3A5.5 5.5 0 0 1 18.5 16h25a5 5 0 0 1 4.8 3.6l2 6.4" stroke="#fff0bd" stroke-linecap="round" stroke-width="2.5" />
+  <path d="M13 25h34a5 5 0 0 1 5 5v14a6 6 0 0 1-6 6H17a6 6 0 0 1-6-6V30a5 5 0 0 1 2-5Z" fill="url(#leather)" stroke="#ffe7a5" stroke-width="1.5" filter="url(#shadow)" />
+  <path d="M14 29h31" stroke="#fff0bd" stroke-linecap="round" stroke-opacity=".75" stroke-width="1.5" />
+  <path d="M32 31h17a4 4 0 0 1 4 4v7a4 4 0 0 1-4 4H32a4 4 0 0 1-4-4v-7a4 4 0 0 1 4-4Z" fill="url(#pocket)" stroke="#ffe4a0" stroke-width="1.5" />
+  <circle cx="43" cy="38.5" r="2.6" fill="#ffd66d" />
+  <circle cx="43" cy="38.5" r="1" fill="#98601f" />
+  <path d="M17 46h8" stroke="#fff0bd" stroke-linecap="round" stroke-opacity=".7" stroke-width="1.5" />
+</svg>
