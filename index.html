@@ -19,6 +19,53 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <div class="auth-screen" id="authScreen">
+      <form class="auth-panel" id="authForm" aria-labelledby="authTitle">
+        <div class="auth-brand-icon">
+          <i class="ui-icon" data-lucide="wallet-cards" aria-hidden="true"></i>
+        </div>
+        <div class="auth-brand-name">খরচের খাতা</div>
+        <h1 class="auth-title" id="authTitle">PIN দিয়ে প্রবেশ করুন</h1>
+        <p class="auth-copy" id="authDescription">
+          আপনার ৪–৬ সংখ্যার PIN লিখুন
+        </p>
+        <div class="auth-field">
+          <label for="authPin">PIN</label>
+          <input
+            id="authPin"
+            name="pin"
+            type="password"
+            inputmode="numeric"
+            maxlength="6"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+        <div class="auth-field" id="authConfirmGroup" hidden>
+          <label for="authPinConfirm">PIN আবার লিখুন</label>
+          <input
+            id="authPinConfirm"
+            name="pin-confirm"
+            type="password"
+            inputmode="numeric"
+            maxlength="6"
+            autocomplete="new-password"
+          />
+        </div>
+        <p
+          class="auth-error"
+          id="authError"
+          role="alert"
+          aria-live="polite"
+        ></p>
+        <button class="auth-button" id="authSubmit" type="submit">
+          <i class="ui-icon" data-lucide="lock-keyhole" aria-hidden="true"></i>
+          প্রবেশ করুন
+        </button>
+        <p class="auth-note">PIN এই ব্রাউজারেই সংরক্ষিত থাকবে</p>
+      </form>
+    </div>
+
     <div class="topbar">
       <div class="topbar-brand">
         <div class="brand-icon">
@@ -33,6 +80,15 @@
         <div class="bal-pill">
           ব্যালেন্স <span id="topBalance" style="color: var(--green)">৳০</span>
         </div>
+        <button
+          class="notif-btn lock-app-btn"
+          type="button"
+          onclick="lockApp()"
+          title="অ্যাপ লক করুন"
+          aria-label="অ্যাপ লক করুন"
+        >
+          <i class="ui-icon" data-lucide="lock-keyhole" aria-hidden="true"></i>
+        </button>
         <div class="notif-btn" onclick="toggleNotif()" title="নোটিফিকেশন">
           <i class="ui-icon" data-lucide="bell" aria-hidden="true"></i>
           <div class="notif-dot" id="notifDot" style="display: none"></div>
@@ -448,6 +504,75 @@
 
       <!-- REPORT -->
       <div class="section" id="section-report">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <i class="ui-icon" data-lucide="table-2" aria-hidden="true"></i>
+              Google Sheets sync
+            </div>
+            <span
+              class="sheet-sync-status"
+              id="sheetSyncStatus"
+              data-state="idle"
+              >সংযুক্ত নয়</span
+            >
+          </div>
+          <p class="sheet-sync-note">
+            Apps Script Web App URL ও একই sync token দিন। সংযোগ করলে আগের সব
+            লেনদেন একবারে পাঠাবে; এরপর প্রতিটি পরিবর্তন sync হবে।
+          </p>
+          <div class="sheet-sync-fields">
+            <div class="fg">
+              <label for="sheetWebAppUrl">Apps Script Web App URL</label>
+              <input
+                id="sheetWebAppUrl"
+                type="url"
+                placeholder="https://script.google.com/macros/s/.../exec"
+                autocomplete="url"
+              />
+            </div>
+            <div class="fg">
+              <label for="sheetSyncToken">Sync token</label>
+              <input
+                id="sheetSyncToken"
+                type="password"
+                placeholder="একই গোপন token দিন"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+          <div class="sheet-sync-actions">
+            <button
+              class="btn btn-primary"
+              type="button"
+              onclick="saveSheetConnection()"
+            >
+              <i
+                class="ui-icon"
+                data-lucide="cloud-upload"
+                aria-hidden="true"
+              ></i>
+              সংযোগ ও সব data sync
+            </button>
+            <button
+              class="btn btn-ghost"
+              type="button"
+              onclick="syncAllToSheet()"
+            >
+              <i
+                class="ui-icon"
+                data-lucide="refresh-cw"
+                aria-hidden="true"
+              ></i>
+              এখনই sync
+            </button>
+          </div>
+          <p class="sheet-sync-warning">
+            Sync শুধু “Expense Tracker Sync” tab-এর content বদলাবে। ওই tab-এ
+            অন্য data রাখবেন না। Browser থেকে server-এর নিশ্চিত উত্তর পড়া যায়
+            না, তাই পাঠানোর পর Sheet-এ মিলিয়ে নিন।
+          </p>
+        </div>
         <div class="card" style="text-align: center; padding: 28px">
           <div class="report-icon">
             <i

@@ -1,9 +1,18 @@
+var PIN_STORAGE_KEY = 'khorcher_khata_pin_v1';
+var SHEET_CONFIG_KEY = 'khorcher_khata_sheet_config_v1';
+var authMode = 'login';
+var sheetConfig = null;
+var sheetSyncTimer = null;
+var sheetSyncQueue = Promise.resolve();
 var data = JSON.parse(localStorage.getItem('khorcher_khata') || '{"transactions":[]}');
 var histFilter = 'all';
 var selectedCat = '';
 var catChartInst = null;
 
-function save(){ localStorage.setItem('khorcher_khata', JSON.stringify(data)); }
+function save(sync){
+  localStorage.setItem('khorcher_khata', JSON.stringify(data));
+  if(sync!==false)scheduleSheetSync();
+}
 function taka(n){ return '\u09f3' + Math.abs(Number(n)).toLocaleString('bn-BD'); }
 function todayISO(){ return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso){ return new Date(iso+'T00:00:00').toLocaleDateString('bn-BD',{day:'2-digit',month:'short',year:'numeric'}); }
@@ -19,6 +28,160 @@ var SRC_ICONS = {'\u09ac\u09c7\u09a4\u09a8':'briefcase-business','\u09ab\u09cd\u
 
 function iconHTML(name){ return '<i class="ui-icon" data-lucide="'+name+'" aria-hidden="true"></i>'; }
 function renderIcons(){ if(window.lucide) window.lucide.createIcons(); }
+
+function normalizePin(pin){
+  var bengaliDigits='০১২৩৪৫৬৭৮৯';
+  return pin.replace(/[০-৯]/g,function(digit){return String(bengaliDigits.indexOf(digit));});
+}
+function bytesToHex(bytes){return Array.from(bytes).map(function(byte){return byte.toString(16).padStart(2,'0');}).join('');}
+function hexToBytes(hex){var bytes=new Uint8Array(hex.length/2);for(var i=0;i<bytes.length;i++)bytes[i]=parseInt(hex.slice(i*2,i*2+2),16);return bytes;}
+async function hashPin(pin,salt){
+  var key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);
+  var result=await crypto.subtle.deriveBits({name:'PBKDF2',salt:salt,iterations:150000,hash:'SHA-256'},key,256);
+  return bytesToHex(new Uint8Array(result));
+}
+function equalHashes(first,second){
+  if(first.length!==second.length)return false;
+  var difference=0;
+  for(var i=0;i<first.length;i++)difference|=first.charCodeAt(i)^second.charCodeAt(i);
+  return difference===0;
+}
+function setAuthMode(mode){
+  authMode=mode;
+  var setup=mode==='setup';
+  document.getElementById('authTitle').textContent=setup?'নতুন PIN তৈরি করুন':'PIN দিয়ে প্রবেশ করুন';
+  document.getElementById('authDescription').textContent=setup?'৪–৬ সংখ্যার একটি PIN বেছে নিন':'আপনার ৪–৬ সংখ্যার PIN লিখুন';
+  document.getElementById('authConfirmGroup').hidden=!setup;
+  document.getElementById('authPin').autocomplete=setup?'new-password':'current-password';
+  document.getElementById('authSubmit').innerHTML=iconHTML('lock-keyhole')+(setup?' PIN তৈরি করুন':' প্রবেশ করুন');
+  document.getElementById('authError').textContent='';
+  renderIcons();
+}
+function setAppInert(inert){
+  document.querySelectorAll('body > div:not(#authScreen)').forEach(function(element){element.inert=inert;});
+  document.body.classList.toggle('auth-locked',inert);
+}
+function showAuthScreen(mode){
+  document.getElementById('authScreen').hidden=false;
+  setAppInert(true);
+  setAuthMode(mode);
+  document.getElementById('authForm').reset();
+  document.getElementById('authPin').focus();
+}
+function hideAuthScreen(){
+  document.getElementById('authScreen').hidden=true;
+  setAppInert(false);
+  document.getElementById('authForm').reset();
+  document.getElementById('authError').textContent='';
+  if(sheetConfig)scheduleSheetSync();
+  history.pushState({pinLockGuard:true},'',location.href);
+}
+function lockApp(){showAuthScreen('login');}
+window.addEventListener('popstate',function(){
+  if(document.getElementById('authScreen').hidden){
+    showAuthScreen('login');
+    history.pushState({pinLockGuard:true},'',location.href);
+  }
+});
+async function submitPin(event){
+  event.preventDefault();
+  var pin=normalizePin(document.getElementById('authPin').value);
+  var error=document.getElementById('authError');
+  var button=document.getElementById('authSubmit');
+  if(!/^\d{4,6}$/.test(pin)){error.textContent='৪–৬ সংখ্যার PIN দিন';return;}
+  if(authMode==='setup'&&pin!==normalizePin(document.getElementById('authPinConfirm').value)){
+    error.textContent='দুটি PIN মিলছে না';
+    document.getElementById('authPinConfirm').focus();
+    return;
+  }
+  button.disabled=true;
+  try{
+    if(authMode==='setup'){
+      var salt=crypto.getRandomValues(new Uint8Array(16));
+      var pinRecord={salt:bytesToHex(salt),hash:await hashPin(pin,salt)};
+      localStorage.setItem(PIN_STORAGE_KEY,JSON.stringify(pinRecord));
+    }else{
+      var saved=JSON.parse(localStorage.getItem(PIN_STORAGE_KEY)||'null');
+      if(!saved||!saved.salt||!saved.hash){showAuthScreen('setup');return;}
+      var attempt=await hashPin(pin,hexToBytes(saved.salt));
+      if(!equalHashes(attempt,saved.hash)){
+        error.textContent='PIN সঠিক নয়, আবার চেষ্টা করুন';
+        document.getElementById('authPin').value='';
+        document.getElementById('authPin').focus();
+        return;
+      }
+    }
+    hideAuthScreen();
+  }catch(errorValue){
+    error.textContent='PIN যাচাই করা যায়নি। আবার চেষ্টা করুন';
+  }finally{
+    button.disabled=false;
+  }
+}
+function initPinAuth(){
+  document.getElementById('authForm').addEventListener('submit',submitPin);
+  showAuthScreen(localStorage.getItem(PIN_STORAGE_KEY)?'login':'setup');
+}
+
+function setSheetSyncStatus(message,state){
+  var status=document.getElementById('sheetSyncStatus');
+  status.textContent=message;
+  status.dataset.state=state;
+}
+function readSheetConfig(){
+  try{return JSON.parse(localStorage.getItem(SHEET_CONFIG_KEY)||'null');}
+  catch(error){return null;}
+}
+function initSheetSync(){
+  sheetConfig=readSheetConfig();
+  if(sheetConfig){
+    document.getElementById('sheetWebAppUrl').value=sheetConfig.url||'';
+    document.getElementById('sheetSyncToken').value=sheetConfig.token||'';
+    setSheetSyncStatus('সংযোগ সংরক্ষিত','sent');
+  }
+}
+function saveSheetConnection(){
+  var url=document.getElementById('sheetWebAppUrl').value.trim();
+  var token=document.getElementById('sheetSyncToken').value.trim();
+  var endpoint;
+  try{endpoint=new URL(url);}catch(error){endpoint=null;}
+  if(!endpoint||endpoint.protocol!=='https:'||endpoint.hostname!=='script.google.com'||endpoint.pathname.indexOf('/macros/')===-1||!endpoint.pathname.endsWith('/exec')){
+    setSheetSyncStatus('সঠিক Apps Script /exec URL দিন','error');
+    return;
+  }
+  if(token.length<24){
+    setSheetSyncStatus('কমপক্ষে ২৪ অক্ষরের token দিন','error');
+    return;
+  }
+  sheetConfig={url:url,token:token};
+  localStorage.setItem(SHEET_CONFIG_KEY,JSON.stringify(sheetConfig));
+  syncAllToSheet();
+}
+function scheduleSheetSync(){
+  if(!sheetConfig)return;
+  window.clearTimeout(sheetSyncTimer);
+  sheetSyncTimer=window.setTimeout(function(){sheetSyncTimer=null;syncAllToSheet();},650);
+}
+function syncAllToSheet(){
+  if(!sheetConfig){
+    setSheetSyncStatus('আগে URL ও token সংরক্ষণ করুন','error');
+    return Promise.resolve();
+  }
+  window.clearTimeout(sheetSyncTimer);
+  sheetSyncTimer=null;
+  var config=sheetConfig;
+  var count=data.transactions.length;
+  var body=JSON.stringify({token:config.token,transactions:data.transactions});
+  setSheetSyncStatus('সব লেনদেন পাঠানো হচ্ছে…','sending');
+  sheetSyncQueue=sheetSyncQueue.catch(function(){return null;}).then(function(){
+    return fetch(config.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:body});
+  });
+  return sheetSyncQueue.then(function(){
+    setSheetSyncStatus('পাঠানো হয়েছে · '+count+'টি; Sheet যাচাই করুন','sent');
+  }).catch(function(){
+    setSheetSyncStatus('পাঠানো যায়নি · URL ও ইন্টারনেট পরীক্ষা করুন','error');
+  });
+}
 
 function showTab(id,btn){
   document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});
@@ -302,6 +465,8 @@ function checkReminder(){
   document.getElementById('incDate').value=t;
   document.getElementById('todayLabel').textContent=new Date().toLocaleDateString('bn-BD',{weekday:'long',day:'numeric',month:'long'});
   renderAll();
+  initSheetSync();
+  initPinAuth();
   checkReminder();
-  window.addEventListener('beforeunload',save);
+  window.addEventListener('beforeunload',function(){save(false);});
 })();
